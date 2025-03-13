@@ -1,47 +1,42 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
-const path = require("path");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("cloudinary").v2;
+require("dotenv").config();
 
-// 🖼️ إعداد `multer` لتخزين الصور
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, "../images")); // تخزين الصور داخل مجلد `images`
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
-    cb(null, uniqueName);
+// ✅ 1️⃣ إعداد `Cloudinary`
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// ✅ 2️⃣ إعداد `Multer` مع `Cloudinary`
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "uploads", // 🔥 سيتم تخزين الصور في مجلد `uploads` على `Cloudinary`
+    allowed_formats: ["jpg", "jpeg", "png"],
   },
 });
 
-// 🛑 فلترة الملفات للسماح برفع الصور فقط
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
-
-  if (extname && mimetype) {
-    cb(null, true);
-  } else {
-    cb(new Error("❌ يُسمح فقط بملفات الصور (JPG, JPEG, PNG)!"), false);
-  }
-};
-
-// 🚀 تحديد الحد الأقصى لحجم الصورة إلى 2MB
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
-  fileFilter,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 🚀 تحديد الحد الأقصى لحجم الصورة إلى 2MB
 });
 
-router.post("/", upload.single("image"), (req, res) => {
+// ✅ 3️⃣ تعديل `POST /api/upload` لرفع الصور إلى `Cloudinary`
+router.post("/", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "❌ يرجى اختيار صورة!" });
     }
 
-    const imageUrl = `/images/${req.file.filename}`;
-    console.log("✅ الصورة تم رفعها:", imageUrl);
+    console.log("✅ الصورة تم رفعها إلى Cloudinary:", req.file);
+
+    // ✅ استخدام `secure_url` للحصول على الرابط المباشر للصورة
+    const imageUrl = req.file.path || req.file.secure_url;
 
     res.status(201).json({
       message: "🎉 تم رفع الصورة بنجاح!",
@@ -54,18 +49,3 @@ router.post("/", upload.single("image"), (req, res) => {
 });
 
 module.exports = router;
-
-
-
-
-
- router.post('/',upload.single("image"),(req,res)=>{
-    res.json('image uploaded')
- })
-
-
-
-
-
-
- module.exports=router
